@@ -22,6 +22,55 @@
   const MAX_PREVIEW_SIZE = 512 * 1024; // 512KB
   const MAX_LINES = 200;
   
+  // Download button SVG icon
+  const downloadIcon = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"/></svg>';
+  
+  // Add download buttons to file rows
+  function addDownloadButtons() {
+    const table = document.querySelector('table#list');
+    if (!table) return;
+    
+    // Add header for actions column
+    const headerRow = table.querySelector('thead tr');
+    if (headerRow && !headerRow.querySelector('.actions')) {
+      const th = document.createElement('th');
+      th.className = 'actions';
+      th.textContent = '';
+      headerRow.appendChild(th);
+    }
+    
+    // Add download button to each file row
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+      const link = row.querySelector('td.link a');
+      if (!link) return;
+      
+      const href = link.getAttribute('href');
+      const isDir = href && href.endsWith('/');
+      
+      const td = document.createElement('td');
+      td.className = 'actions';
+      
+      if (!isDir && href) {
+        const btn = document.createElement('a');
+        btn.href = href;
+        btn.download = '';
+        btn.className = 'download-btn';
+        btn.title = 'Download';
+        btn.innerHTML = downloadIcon;
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation(); // Don't trigger preview
+        });
+        td.appendChild(btn);
+      }
+      
+      row.appendChild(td);
+    });
+  }
+  
+  // Run on load
+  addDownloadButtons();
+  
   const overlay = document.getElementById('previewOverlay');
   const title = document.getElementById('previewTitle');
   const content = document.getElementById('previewContent');
