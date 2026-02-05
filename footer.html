@@ -1,0 +1,131 @@
+
+<!-- Preview Modal -->
+<div class="preview-overlay" id="previewOverlay">
+  <div class="preview-modal">
+    <div class="preview-header">
+      <h3 class="preview-title" id="previewTitle">Loading...</h3>
+      <div class="preview-actions">
+        <button class="preview-btn primary" id="previewDownload">Download</button>
+        <button class="preview-btn" id="previewClose">Close (Esc)</button>
+      </div>
+    </div>
+    <div class="preview-content" id="previewContent">
+      <div class="preview-loading">Loading preview...</div>
+    </div>
+    <div class="preview-truncated" id="previewTruncated" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const PREVIEW_EXTENSIONS = ['.log', '.txt', '.csv', '.json', '.md', '.xml', '.yaml', '.yml', '.conf', '.ini', '.sh', '.py', '.js', '.html', '.css'];
+  const MAX_PREVIEW_SIZE = 512 * 1024; // 512KB
+  const MAX_LINES = 200;
+  
+  const overlay = document.getElementById('previewOverlay');
+  const title = document.getElementById('previewTitle');
+  const content = document.getElementById('previewContent');
+  const truncated = document.getElementById('previewTruncated');
+  const downloadBtn = document.getElementById('previewDownload');
+  const closeBtn = document.getElementById('previewClose');
+  
+  let currentUrl = null;
+  
+  function shouldPreview(href) {
+    const lower = href.toLowerCase();
+    return PREVIEW_EXTENSIONS.some(ext => lower.endsWith(ext));
+  }
+  
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  
+  function showModal() {
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+  
+  function hideModal() {
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+    currentUrl = null;
+  }
+  
+  async function previewFile(url, filename) {
+    currentUrl = url;
+    title.textContent = filename;
+    content.innerHTML = '<div class="preview-loading">Loading preview...</div>';
+    truncated.style.display = 'none';
+    showModal();
+    
+    try {
+      const response = await fetch(url, {
+        headers: { 'Range': 'bytes=0-' + MAX_PREVIEW_SIZE }
+      });
+      
+      if (!response.ok) throw new Error('Failed to load file');
+      
+      let text = await response.text();
+      const lines = text.split('\n');
+      let wasTruncated = false;
+      let truncateReason = '';
+      
+      if (lines.length > MAX_LINES) {
+        text = lines.slice(0, MAX_LINES).join('\n');
+        wasTruncated = true;
+        truncateReason = `Showing first ${MAX_LINES} lines of ${lines.length.toLocaleString()}`;
+      }
+      
+      if (response.status === 206) {
+        wasTruncated = true;
+        const total = response.headers.get('content-range')?.match(/\/(\d+)/)?.[1];
+        if (total) {
+          truncateReason = `Showing first ${(MAX_PREVIEW_SIZE/1024).toFixed(0)}KB of ${(parseInt(total)/1024/1024).toFixed(1)}MB`;
+        } else {
+          truncateReason = truncateReason || `Truncated to first ${(MAX_PREVIEW_SIZE/1024).toFixed(0)}KB`;
+        }
+      }
+      
+      content.innerHTML = '<pre>' + escapeHtml(text) + '</pre>';
+      
+      if (wasTruncated) {
+        truncated.textContent = truncateReason + ' — Download for full file';
+        truncated.style.display = 'block';
+      }
+    } catch (err) {
+      content.innerHTML = '<div class="preview-error">Failed to load preview: ' + escapeHtml(err.message) + '</div>';
+    }
+  }
+  
+  // Event delegation for file links
+  document.addEventListener('click', function(e) {
+    const link = e.target.closest('a');
+    if (!link) return;
+    
+    const href = link.getAttribute('href');
+    if (!href || href.endsWith('/') || !shouldPreview(href)) return;
+    
+    e.preventDefault();
+    const filename = decodeURIComponent(href.split('/').pop());
+    previewFile(href, filename);
+  });
+  
+  // Close handlers
+  closeBtn.addEventListener('click', hideModal);
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) hideModal();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && overlay.classList.contains('active')) hideModal();
+  });
+  
+  // Download button
+  downloadBtn.addEventListener('click', function() {
+    if (currentUrl) window.location.href = currentUrl;
+  });
+})();
+</script>
+</body>
+</html>
